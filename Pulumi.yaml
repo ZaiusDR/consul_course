@@ -1,0 +1,6 @@
+name: consul-course
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Consul Cluster IaC
