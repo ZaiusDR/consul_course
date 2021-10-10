@@ -46,7 +46,7 @@ consul_server_sg = pulumi_aws.ec2.SecurityGroup(
     ],
     egress=[
         pulumi_aws.ec2.SecurityGroupEgressArgs(
-            protocol='all', cidr_blocks=['0.0.0.0/0']
+            protocol='all', from_port=0, to_port=65535, cidr_blocks=['0.0.0.0/0']
         )
     ]
 )
