@@ -1,0 +1,49 @@
+#cloud-config
+
+write_files:
+  - content: |
+      {
+        "server": true,
+        "datacenter": "awesome-datacenter",
+        "bind_addr": "0.0.0.0",
+        "client_addr": "0.0.0.0",
+        "bootstrap_expect": 3,
+        "retry_join": ["provider=aws tag_key=Consul tag_value=consul-server region=us-east-1"],
+        "data_dir": "/opt/consul/data",
+        "connect": {
+          "enabled": true
+        },
+        "ui_config": {
+          "enabled": true
+        }
+      }
+    path: /etc/consul.d/agent.hcl
+  - content: |
+      [Unit]
+      Description="HashiCorp Consul - A service mesh solution"
+      Documentation=https://www.consul.io/
+      Requires=network-online.target
+      After=network-online.target
+      ConditionFileNotEmpty=/etc/consul.d/agent.hcl
+
+      [Service]
+      Type=notify
+      User=consul
+      Group=consul
+      ExecStart=/usr/local/bin/consul agent -config-file=/etc/consul.d/agent.hcl
+      ExecReload=/usr/local/bin/consul reload
+      KillMode=process
+      Restart=on-failure
+      LimitNOFILE=65536
+
+      [Install]
+      WantedBy=multi-user.target
+    path: /etc/systemd/system/consul.service
+
+yum_repos:
+  consul:
+    baseurl: 'https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo'
+    name: consul
+    enabled: true
+
+
