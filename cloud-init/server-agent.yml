@@ -8,8 +8,9 @@ write_files:
         "bind_addr": "0.0.0.0",
         "client_addr": "0.0.0.0",
         "bootstrap_expect": 3,
-        "retry_join": ["provider=aws tag_key=Consul tag_value=consul-server region=us-east-1"],
+        "retry_join": ["provider=aws tag_key=Consul tag_value=consul-server region=eu-west-1"],
         "data_dir": "/opt/consul/data",
+        "leave_on_terminate": true,
         "connect": {
           "enabled": true
         },
@@ -17,33 +18,24 @@ write_files:
           "enabled": true
         }
       }
-    path: /etc/consul.d/agent.hcl
+    path: /etc/consul.d/consul.hcl
   - content: |
-      [Unit]
-      Description="HashiCorp Consul - A service mesh solution"
-      Documentation=https://www.consul.io/
-      Requires=network-online.target
-      After=network-online.target
-      ConditionFileNotEmpty=/etc/consul.d/agent.hcl
-
-      [Service]
-      Type=notify
-      User=consul
-      Group=consul
-      ExecStart=/usr/local/bin/consul agent -config-file=/etc/consul.d/agent.hcl
-      ExecReload=/usr/local/bin/consul reload
-      KillMode=process
-      Restart=on-failure
-      LimitNOFILE=65536
-
-      [Install]
-      WantedBy=multi-user.target
-    path: /etc/systemd/system/consul.service
+      sed -i "s/\"bind_addr\": \"0.0.0.0\"/\"bind_addr\": \"$(hostname -I| awk '{print $1}')\"/" /etc/consul.d/consul.hcl
+    path: /root/configure_consul.sh
+    permissions: 744
 
 yum_repos:
-  consul:
-    baseurl: 'https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo'
-    name: consul
+  hashicorp:
+    baseurl: "https://rpm.releases.hashicorp.com/AmazonLinux/$releasever/$basearch/stable"
+    name: hashicorp
     enabled: true
+    gpgcheck: true
+    gpgkey: https://rpm.releases.hashicorp.com/gpg
+
+packages:
+  - consul
 
 
+runcmd:
+  - ['bash', '/root/configure_consul.sh']
+  - ['systemctl', 'start', 'consul']

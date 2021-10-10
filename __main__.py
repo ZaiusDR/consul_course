@@ -1,7 +1,8 @@
-"""An AWS Python Pulumi program"""
+import json
 
 import pulumi
 import pulumi_aws
+import pulumi_aws.iam
 
 aws_ami = pulumi_aws.ec2.get_ami(
     owners=['amazon'],
@@ -18,6 +19,12 @@ consul_server_sg = pulumi_aws.ec2.SecurityGroup(
     'consul-server',
     description='Consul Servers Security Group',
     ingress=[
+        pulumi_aws.ec2.SecurityGroupIngressArgs(
+            protocol='tcp', from_port=22, to_port=22, cidr_blocks=['139.47.112.75/32']
+        ),
+        pulumi_aws.ec2.SecurityGroupIngressArgs(
+            protocol='tcp', from_port=8500, to_port=8500, cidr_blocks=['139.47.112.75/32']
+        ),
         pulumi_aws.ec2.SecurityGroupIngressArgs(
             protocol='tcp', from_port=8600, to_port=8600, cidr_blocks=[vpc.cidr_block]
         ),
@@ -36,7 +43,45 @@ consul_server_sg = pulumi_aws.ec2.SecurityGroup(
         pulumi_aws.ec2.SecurityGroupIngressArgs(
             protocol='tcp', from_port=8300, to_port=8300, cidr_blocks=[vpc.cidr_block]
         )
+    ],
+    egress=[
+        pulumi_aws.ec2.SecurityGroupEgressArgs(
+            protocol='all', cidr_blocks=['0.0.0.0/0']
+        )
     ]
+)
+
+instance_profile_role = pulumi_aws.iam.Role(
+    'consul',
+    assume_role_policy=json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Action": "sts:AssumeRole",
+            "Effect": "Allow",
+            "Sid": "",
+            "Principal": {
+                "Service": "ec2.amazonaws.com",
+            },
+        }],
+    }),
+    inline_policies=[
+        pulumi_aws.iam.RoleInlinePolicyArgs(
+            name="consul-server-describe-instances",
+            policy=json.dumps({
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Action": ["ec2:DescribeInstances"],
+                    "Effect": "Allow",
+                    "Resource": "*",
+                }],
+            })
+        )
+    ]
+)
+
+instance_profile = pulumi_aws.iam.InstanceProfile(
+    'consul-server',
+    role=instance_profile_role.name
 )
 
 with open('./cloud-init/server-agent.yml') as f:
@@ -57,4 +102,5 @@ for i in range(1, 4):
             'Consul': 'consul-server'
         },
         user_data=user_data,
+        iam_instance_profile=instance_profile.name
     )
